@@ -3643,6 +3643,7 @@ CrateFile::_ReadPathsImpl(Reader reader,
             if (hasSibling) {
                 // Branch off a parallel task for the sibling subtree.
                 auto siblingOffset = reader.template Read<int64_t>();
+#ifndef PXR_ONETBB_SUPPORT_ENABLED
                 dispatcher.Run(
                     [this, reader,
                      siblingOffset, &dispatcher, parentPath]() mutable {
@@ -3653,6 +3654,10 @@ CrateFile::_ReadPathsImpl(Reader reader,
                         reader.Seek(siblingOffset);
                         _ReadPathsImpl<Header>(reader, dispatcher, parentPath);
                     });
+#else 
+                TaskReadPath<Header, Reader> task(this, &reader, siblingOffset, &dispatcher, parentPath);
+                dispatcher.Run(task);
+#endif 
             }
             // Have a child (may have also had a sibling). Reset parent path.
             parentPath = _paths[h.index.value];
@@ -3779,6 +3784,7 @@ CrateFile::_BuildDecompressedPathsImpl(
                     return;
                 }
 #endif
+#ifndef PXR_ONETBB_SUPPORT_ENABLED
                 dispatcher.Run(
                     [this, &pathIndexes, &elementTokenIndexes, &jumps,
                      siblingIndex, &dispatcher, parentPath]() mutable {
@@ -3790,6 +3796,10 @@ CrateFile::_BuildDecompressedPathsImpl(
                             pathIndexes, elementTokenIndexes, jumps,
                             siblingIndex, parentPath, dispatcher);
                     });
+#else 
+                TaskBuildDecompressedpath task(this, pathIndexes, elementTokenIndexes, jumps, siblingIndex, &dispatcher, parentPath);
+                dispatcher.Run(task);
+#endif
             }
             // Have a child (may have also had a sibling). Reset parent path.
             parentPath = _paths[pathIndexes[thisIndex]];
